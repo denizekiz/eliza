@@ -8,7 +8,7 @@ import {
     Content,
     HandlerCallback,
     IAgentRuntime,
-    ImageDescriptionService,
+    IImageDescriptionService,
     Memory,
     ModelClass,
     State,
