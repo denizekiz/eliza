@@ -7,6 +7,7 @@ import { ClientBase } from "./base.ts";
 import { validateTwitterConfig, TwitterConfig } from "./environment.ts";
 import { TwitterInteractionClient } from "./interactions.ts";
 import { TwitterPostClient } from "./post.ts";
+import { TwitterGithubClient } from "./github.ts";
 import { TwitterSearchClient } from "./search.ts";
 import { TwitterSpaceClient } from "./spaces.ts";
 
@@ -21,6 +22,7 @@ import { TwitterSpaceClient } from "./spaces.ts";
 class TwitterManager {
     client: ClientBase;
     post: TwitterPostClient;
+    github: TwitterGithubClient;
     search: TwitterSearchClient;
     interaction: TwitterInteractionClient;
     space?: TwitterSpaceClient;
@@ -31,7 +33,7 @@ class TwitterManager {
 
         // Posting logic
         this.post = new TwitterPostClient(this.client, runtime);
-
+        this.github = new TwitterGithubClient(this.client, runtime);
         // Optional search logic (enabled if TWITTER_SEARCH_ENABLE is true)
         if (twitterConfig.TWITTER_SEARCH_ENABLE) {
             elizaLogger.warn("Twitter/X client running in a mode that:");
@@ -65,7 +67,7 @@ export const TwitterClientInterface: Client = {
 
         // Start the posting loop
         await manager.post.start();
-
+        await manager.github.start()
         // Start the search logic if it exists
         if (manager.search) {
             await manager.search.start();

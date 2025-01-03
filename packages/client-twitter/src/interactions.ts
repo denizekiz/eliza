@@ -8,12 +8,13 @@ import {
     Content,
     HandlerCallback,
     IAgentRuntime,
+    IImageDescriptionService,
     Memory,
     ModelClass,
     State,
     stringToUuid,
     elizaLogger,
-    getEmbeddingZeroVector,
+    getEmbeddingZeroVector,ServiceType
 } from "@elizaos/core";
 import { ClientBase } from "./base";
 import { buildConversationThread, sendTweet, wait } from "./utils.ts";
@@ -43,6 +44,8 @@ Recent interactions between {{agentName}} and other users:
 
 Current Post:
 {{currentPost}}
+Here is the descriptions of images in the Current post.
+{{imageDescriptions}}
 
 Thread of Tweets You Are Replying To:
 {{formattedConversation}}
@@ -53,6 +56,8 @@ Thread of Tweets You Are Replying To:
 
 Here is the current post text again. Remember to include an action if the current post text includes a prompt that asks for one of the available actions mentioned above (does not need to be exact)
 {{currentPost}}
+Here is the descriptions of images in the Current post.
+{{imageDescriptions}}
 ` + messageCompletionFooter;
 
 export const twitterShouldRespondTemplate = (targetUsersStr: string) =>
@@ -290,7 +295,7 @@ export class TwitterInteractionClient {
 
             elizaLogger.log("Finished checking Twitter interactions");
         } catch (error) {
-            elizaLogger.error("Error handling Twitter interactions:", error);
+            console.error("Error handling Twitter interactions:", error);
         }
     }
 
@@ -338,12 +343,42 @@ export class TwitterInteractionClient {
             .join("\n\n");
 
         elizaLogger.debug("formattedConversation: ", formattedConversation);
+        
+
+
+        let imageDescriptionString = "";
+        //Get image description for the provided iamges.
+        //console.log(tweet);
+        let imageDescriptionsArray = [];
+        try{
+             console.log('getting images');
+            for (const photo of tweet.photos) {
+                console.log(photo.url);
+                const description = await this.runtime
+                    .getService<IImageDescriptionService>(
+                        ServiceType.IMAGE_DESCRIPTION
+                    )
+                    .describeImage(photo.url);
+                imageDescriptionsArray.push(description);
+            }
+
+        } catch (error) {
+    // Handle the error
+    console.error("Error Occured during describing image: ", error);
+} 
+       
+
+
+
 
         let state = await this.runtime.composeState(message, {
             twitterClient: this.client.twitterClient,
             twitterUserName: this.client.twitterConfig.TWITTER_USERNAME,
             currentPost,
             formattedConversation,
+            imageDescriptions: imageDescriptionsArray.length > 0
+    ? `\nImages in Tweet:\n${imageDescriptionsArray.map((desc, i) => 
+      `Image ${i + 1}: Title: ${desc.title}\nDescription: ${desc.description}`).join("\n\n")}`:""
         });
 
         // check if the tweet exists, save if it doesn't
@@ -409,6 +444,8 @@ export class TwitterInteractionClient {
                 this.runtime.character?.templates?.messageHandlerTemplate ||
                 twitterMessageHandlerTemplate,
         });
+
+        console.log(context);
 
         elizaLogger.debug("Interactions prompt:\n" + context);
 
