@@ -39,7 +39,7 @@ Pull Request Start:
 Pull Request End
 
 # Task: Generate a post in the voice and style and perspective of {{agentName}} @{{twitterUserName}}.
-Write a summary about the provided pull request, from the perspective of {{agentName}}. Do not add commentary or acknowledge this request, just write the post. Tag the twitter username of the pull request author if provided by adding @ in the beginning of twitter username.
+Write a summary about the provided pull request, from the perspective of {{agentName}}. Do not add commentary or acknowledge this request, just write the post. No prefixes, just the post. Tag the twitter username of the pull request author if provided by adding @ in the beginning of twitter username. If there is no twitter handle provided in pull request don't tag. Never tag x user @0xraceraialt. Don'T tag user @0xraceraialt
 Your response should be 1, 2, or 3 sentences (choose the length at random).
 Your response should not contain any questions. Brief, concise statements only. The total character count MUST be less than {{maxTweetLength}}. No emojis. Use \\n\\n (double spaces) between statements if there are multiple statements in your response.`;
 
@@ -112,6 +112,7 @@ export class TwitterGithubClient {
     private lastProcessTime: number = 0;
     private stopProcessingActions: boolean = false;
     private isDryRun: boolean;
+    latestpr: string;
 
     constructor(client: ClientBase, runtime: IAgentRuntime) {
         this.client = client;
@@ -148,7 +149,7 @@ export class TwitterGithubClient {
             const randomMinutes =
                 Math.floor(Math.random() * (maxMinutes - minMinutes + 1)) +
                 minMinutes;
-            const delay = 600 * 60 * 1000;
+            const delay = 15 * 60 * 1000;
 
             if (Date.now() > lastPostTimestamp + delay) {
                 await this.generateNewTweet();
@@ -253,11 +254,11 @@ async getPullRequests(owner: string, repo: string, token: string) {
 
         // Combine details into a single text
         return [
-          `Title: ${pr.title}`,
-          `Author: ${pr.user.login}`,
-          `Twitter: ${userDetails.twitter || 'No Twitter handle'}`,
-          `Description: ${pr.body || 'No description provided.'}`,
-          `Changes:\n${changesDetails}`,
+          `#Pull Request Title: ${pr.title}`,
+          `#Pull Request Author: ${pr.user.login}`,
+          `#Pull Request Author's Twitter username: ${userDetails.twitter || 'No Twitter handle'}`,
+          `#Pull Request Description: ${pr.body || 'No description provided.'}`,
+          `#Code Changes:\n${changesDetails}`,
         ].join('\n');
       })
     );
@@ -314,13 +315,14 @@ async getPullRequestChanges(owner: string, repo: string, pullNumber: number, tok
     const filesData = await response.json();
 
     // Extract details of each file
-    const changes = filesData.map((file: any) => ({
+   const changes = filesData
+  .filter((file: any) => !file.filename.includes('yaml')) // Skip files with "yaml" in the filename
+  .map((file: any) => ({
       filename: file.filename,
       additions: file.additions,
       deletions: file.deletions,
       patch: file.patch || 'No patch available',
-    }));
-
+  }));
     return changes;
   } catch (error) {
     console.error(error);
@@ -476,7 +478,7 @@ async getPullRequestChanges(owner: string, repo: string, pullNumber: number, tok
 
                  const owner = 'elizaOS'; // Replace with the repository owner
                   const repo = 'eliza'; // Replace with the repository name
-                 const token = ''; // Replace with your GitHub personal access token
+                 const token = this.runtime.getSetting("GITHUB_API_KEY"); // Replace with your GitHub personal access token
                  let pullRequestString = ""
 
                const pullRequests = await this.getPullRequests(owner, repo, token);
@@ -484,6 +486,11 @@ async getPullRequestChanges(owner: string, repo: string, pullNumber: number, tok
                  if (pullRequests.length > 0) {
                    console.log('Pull Requests:');
                    pullRequestString = `Pull Request:\n${pullRequests[0]}\n`;
+                   if(this.latestpr === pullRequestString){
+                    console.log("Same PR skipping");
+                    return;
+                   }
+                   this.latestpr = pullRequestString
                   console.log(pullRequestString);
                 } else {
                   console.log('No pull requests found.');
@@ -533,7 +540,7 @@ async getPullRequestChanges(owner: string, repo: string, pullNumber: number, tok
 
 
             console.log("generate post prompt for !!!!!!GITHUB!!!!:\n" + context);
-
+            console.log("CONTEXT LENGTH IS:", context.length);
             const newTweetContent = await generateText({
                 runtime: this.runtime,
                 context,
@@ -575,13 +582,14 @@ async getPullRequestChanges(owner: string, repo: string, pullNumber: number, tok
 
             // Truncate the content to the maximum tweet length specified in the environment settings, ensuring the truncation respects sentence boundaries.
             const maxTweetLength = this.client.twitterConfig.MAX_TWEET_LENGTH
-            if (maxTweetLength) {
+           
+
+           /* if (maxTweetLength) {
                 cleanedContent = truncateToCompleteSentence(
                     cleanedContent,
                     maxTweetLength
                 );
-            }
-
+            }*/
             const removeQuotes = (str: string) =>
                 str.replace(/^['"](.*)['"]$/, "$1");
 
