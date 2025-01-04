@@ -39,9 +39,14 @@ Pull Request Start:
 Pull Request End
 
 # Task: Generate a post in the voice and style and perspective of {{agentName}} @{{twitterUserName}}.
-Write a summary about the provided pull request, from the perspective of {{agentName}}. Do not add commentary or acknowledge this request, just write the post. No prefixes, just the post. Tag the twitter username of the pull request author if provided by adding @ in the beginning of twitter username. If there is no twitter handle provided in pull request don't tag. Never tag x user @0xraceraialt. Don'T tag user @0xraceraialt
+Write a summary about the provided pull request, from the perspective of {{agentName}}.
+Tag the pull request author's twitter username of the pull request author if provided by adding @ in the beginning of twitter username.
+If there is no pull request author's twitter username provided in pull request don't tag.
+Never tag x user @0xraceraialt. Do not add @0xraceraialt twitter username in your posts. Make sure who is pull request author's twitter username, don't make mistake.
+Do not add commentary or acknowledge this request, just write the post. No prefixes, just the post.
 Your response should be 1, 2, or 3 sentences (choose the length at random).
-Your response should not contain any questions. Brief, concise statements only. The total character count MUST be less than {{maxTweetLength}}. No emojis. Use \\n\\n (double spaces) between statements if there are multiple statements in your response.`;
+Your response should not contain any questions. Brief, concise statements only. The total character count MUST be less than {{maxTweetLength}}. No emojis. Use \\n\\n (double spaces) between statements if there are multiple statements in your response.
+No questions, commentary, or acknowledgments. No emojis. Just write the post.`;
 
 export const twitterActionTemplate =
     `
@@ -215,6 +220,13 @@ export class TwitterGithubClient {
         } as Tweet;
     }
 
+trimStringToLength(input: string, maxLength: number = 20000): string {
+  if (input.length <= maxLength) {
+    return input;
+  }
+  return input.substring(0, maxLength);
+}
+
 
 
     // Define a function to fetch pull requests and user details
@@ -240,7 +252,7 @@ async getPullRequests(owner: string, repo: string, token: string) {
       pullRequestsData.map(async (pr: any) => {
         const userDetails = await this.getUserDetails(pr.user.login, token);
 
-        
+
         // Fetch code changes
         const changes = await this.getPullRequestChanges(owner, repo, pr.number, token);
 
@@ -255,8 +267,8 @@ async getPullRequests(owner: string, repo: string, token: string) {
         // Combine details into a single text
         return [
           `#Pull Request Title: ${pr.title}`,
-          `#Pull Request Author: ${pr.user.login}`,
-          `#Pull Request Author's Twitter username: ${userDetails.twitter || 'No Twitter handle'}`,
+          //`#Pull Request Author: ${pr.user.login}`,
+          `#Pull Request Author's Twitter username: ${userDetails.twitter || pr.user.login}`,
           `#Pull Request Description: ${pr.body || 'No description provided.'}`,
           `#Code Changes:\n${changesDetails}`,
         ].join('\n');
@@ -525,9 +537,9 @@ async getPullRequestChanges(owner: string, repo: string, pullNumber: number, tok
                 },
                 {
                     twitterUserName: this.client.profile.username,
-                    pullRequests: pullRequestString
+                    pullRequests: this.trimStringToLength(pullRequestString)
                 },
-                
+
 
             );
 
@@ -582,7 +594,7 @@ async getPullRequestChanges(owner: string, repo: string, pullNumber: number, tok
 
             // Truncate the content to the maximum tweet length specified in the environment settings, ensuring the truncation respects sentence boundaries.
             const maxTweetLength = this.client.twitterConfig.MAX_TWEET_LENGTH
-           
+
 
            /* if (maxTweetLength) {
                 cleanedContent = truncateToCompleteSentence(
@@ -1083,6 +1095,11 @@ async getPullRequestChanges(owner: string, repo: string, pullNumber: number, tok
                     elizaLogger.error("Error fetching quoted tweet:", error);
                 }
             }
+            let imageDescriptionString = this.imageDescriptions.length > 0
+                            ? `\nImages in Tweet:\n${imageDescriptions.map((desc, i) => `Image ${i + 1}: ${desc}`).join("\n")}`
+                            : "";
+
+         imageDescriptionString = this.trimStringToLength(imageDescriptionString);
 
             // Compose rich state with all context
             const enrichedState = await this.runtime.composeState(
@@ -1099,9 +1116,7 @@ async getPullRequestChanges(owner: string, repo: string, pullNumber: number, tok
                     currentPost: `From @${tweet.username}: ${tweet.text}`,
                     formattedConversation,
                     imageContext:
-                        imageDescriptions.length > 0
-                            ? `\nImages in Tweet:\n${imageDescriptions.map((desc, i) => `Image ${i + 1}: ${desc}`).join("\n")}`
-                            : "",
+                        imageDescriptionString,
                     quotedContent,
                 }
             );
