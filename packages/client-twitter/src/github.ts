@@ -252,10 +252,11 @@ async getPullRequests(owner: string, repo: string, token: string) {
       pullRequestsData.map(async (pr: any) => {
         const userDetails = await this.getUserDetails(pr.user.login, token);
 
+        const currentPRIdentifier = `${pr.number}-${pr.title}`;
+
 
         // Fetch code changes
         const changes = await this.getPullRequestChanges(owner, repo, pr.number, token);
-
         // Format the changes into a readable string
         const changesDetails = changes
           .map(
@@ -263,15 +264,18 @@ async getPullRequests(owner: string, repo: string, token: string) {
               `File: ${change.filename}\nAdditions: ${change.additions}\nDeletions: ${change.deletions}\nPatch:\n${change.patch}`
           )
           .join('\n\n');
-
         // Combine details into a single text
-        return [
+       const pullRequestString = [
           `#Pull Request Title: ${pr.title}`,
-          //`#Pull Request Author: ${pr.user.login}`,
+          `#Pull Request ID: ${pr.number}`,
+          `Pull Request URL: ${pr.html_url}`,
           `#Pull Request Author's Twitter username: ${userDetails.twitter || pr.user.login}`,
           `#Pull Request Description: ${pr.body || 'No description provided.'}`,
           `#Code Changes:\n${changesDetails}`,
         ].join('\n');
+
+        return { identifier: currentPRIdentifier, content: pullRequestString };
+
       })
     );
 
@@ -328,7 +332,7 @@ async getPullRequestChanges(owner: string, repo: string, pullNumber: number, tok
 
     // Extract details of each file
    const changes = filesData
-  .filter((file: any) => !file.filename.includes('yaml')) // Skip files with "yaml" in the filename
+  .filter((file: any) => !file.filename.includes('yaml') && !file.filename.includes('json')) // Skip files with "yaml" in the filename
   .map((file: any) => ({
       filename: file.filename,
       additions: file.additions,
@@ -458,7 +462,7 @@ async getPullRequestChanges(owner: string, repo: string, pullNumber: number, tok
                     runtime,
                     cleanedContent
                 );
-            } else {
+            } else { 
                 result = await this.sendStandardTweet(client, cleanedContent);
             }
 
@@ -497,12 +501,12 @@ async getPullRequestChanges(owner: string, repo: string, pullNumber: number, tok
                  console.log('Pull request Length is:', pullRequests.length);
                  if (pullRequests.length > 0) {
                    console.log('Pull Requests:');
-                   pullRequestString = `Pull Request:\n${pullRequests[0]}\n`;
-                   if(this.latestpr === pullRequestString){
+                   pullRequestString = `Pull Request:\n${pullRequests[0].content}\n`;
+                   if(this.latestpr === pullRequests[0].identifier){
                     console.log("Same PR skipping");
                     return;
                    }
-                   this.latestpr = pullRequestString
+                   this.latestpr = pullRequests[0].identifier;
                   console.log(pullRequestString);
                 } else {
                   console.log('No pull requests found.');
