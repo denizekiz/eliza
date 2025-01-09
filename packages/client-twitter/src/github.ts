@@ -614,6 +614,10 @@ async getPullRequestChanges(owner: string, repo: string, pullNumber: number, tok
             // Final cleaning
             cleanedContent = removeQuotes(fixNewLines(cleanedContent));
 
+            if (cleanedContent.startsWith('@')) {
+                cleanedContent = '.' + cleanedContent;
+                        }
+
             if (this.isDryRun) {
                 elizaLogger.info(
                     `Dry run: would have posted tweet: ${cleanedContent}`
